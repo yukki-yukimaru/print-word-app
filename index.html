@@ -4,10 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>プリント英単語 発音アプリ</title>
-  <!-- Tesseract.js OCRライブラリ（CDN） -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
-    /* ===== リセット・ベース ===== */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -17,7 +14,6 @@
       min-height: 100vh;
     }
 
-    /* ===== ヘッダー ===== */
     header {
       background: linear-gradient(135deg, #4a90e2, #7b5ea7);
       color: white;
@@ -27,11 +23,53 @@
     header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: 0.03em; }
     header p  { font-size: 0.85rem; margin-top: 6px; opacity: 0.9; }
 
-    /* ===== メインコンテンツ ===== */
     main {
       max-width: 480px;
       margin: 0 auto;
       padding: 20px 16px 40px;
+    }
+
+    /* ===== APIキー設定エリア ===== */
+    #api-key-section {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    .api-key-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .api-key-header h2 { font-size: 0.95rem; color: #444; }
+    .api-key-saved {
+      font-size: 0.75rem;
+      background: #e6f9ee;
+      color: #2a9d4e;
+      border-radius: 99px;
+      padding: 3px 10px;
+      font-weight: 600;
+    }
+    .api-key-input-row {
+      display: flex;
+      gap: 8px;
+    }
+    #api-key-input {
+      flex: 1;
+      border: 1.5px solid #dce8ff;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #api-key-input:focus { border-color: #4a90e2; }
+    .api-key-note {
+      font-size: 0.75rem;
+      color: #999;
+      margin-top: 8px;
     }
 
     /* ===== 画像取り込みエリア ===== */
@@ -44,7 +82,6 @@
       transition: border-color 0.2s;
     }
     .upload-area.dragover { border-color: #4a90e2; background: #eef4ff; }
-
     .upload-area .icon { font-size: 3rem; margin-bottom: 12px; }
     .upload-area .desc { font-size: 0.85rem; color: #888; margin-bottom: 20px; }
 
@@ -55,7 +92,6 @@
       flex-wrap: wrap;
     }
 
-    /* ===== ボタン共通 ===== */
     .btn {
       display: inline-flex;
       align-items: center;
@@ -74,9 +110,10 @@
 
     .btn-primary { background: #4a90e2; color: white; }
     .btn-primary:hover:not(:disabled) { background: #3a7fd2; }
-
     .btn-camera  { background: #7b5ea7; color: white; }
     .btn-camera:hover:not(:disabled) { background: #6a4d96; }
+    .btn-save    { background: #4a90e2; color: white; padding: 10px 18px; font-size: 0.85rem; }
+    .btn-save:hover { background: #3a7fd2; }
 
     .btn-retry {
       background: white;
@@ -88,11 +125,10 @@
     }
     .btn-retry:hover { background: #eef4ff; }
 
-    /* 非表示のファイル入力 */
-    #file-input        { display: none; }
-    #camera-input      { display: none; }
+    #file-input   { display: none; }
+    #camera-input { display: none; }
 
-    /* ===== プレビュー画像 ===== */
+    /* ===== プレビュー ===== */
     #preview-section { display: none; margin-top: 20px; text-align: center; }
     #preview-img {
       max-width: 100%;
@@ -102,7 +138,7 @@
       object-fit: contain;
     }
 
-    /* ===== OCR進捗 ===== */
+    /* ===== 進捗 ===== */
     #progress-section { display: none; margin-top: 24px; }
     .progress-label {
       font-size: 0.85rem;
@@ -121,12 +157,11 @@
       height: 100%;
       width: 0%;
       border-radius: 99px;
-      transition: width 0.3s;
+      transition: width 0.4s;
     }
 
-    /* ===== 結果エリア ===== */
+    /* ===== 結果 ===== */
     #result-section { display: none; margin-top: 24px; }
-
     .result-header {
       display: flex;
       align-items: center;
@@ -143,7 +178,6 @@
       font-weight: 600;
     }
 
-    /* ===== 単語リスト ===== */
     #word-list {
       display: flex;
       flex-direction: column;
@@ -168,17 +202,15 @@
     }
     .word-card:hover  { background: #f0f6ff; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(74,144,226,0.18); }
     .word-card:active { background: #dce8ff; transform: scale(0.98); }
-
     .word-card.speaking {
       background: linear-gradient(135deg, #eef4ff, #f0e8ff);
       border-left: 4px solid #4a90e2;
     }
-
     .word-text  { color: #222; }
     .speak-icon { font-size: 1.1rem; opacity: 0.5; transition: opacity 0.15s; }
     .word-card:hover .speak-icon { opacity: 1; }
 
-    /* ===== エラーメッセージ ===== */
+    /* ===== エラー ===== */
     #error-msg {
       display: none;
       margin-top: 16px;
@@ -191,7 +223,6 @@
       text-align: center;
     }
 
-    /* ===== 空状態 ===== */
     .empty-state {
       text-align: center;
       color: #aaa;
@@ -199,7 +230,6 @@
       padding: 24px 0;
     }
 
-    /* ===== フッター ===== */
     footer {
       text-align: center;
       font-size: 0.75rem;
@@ -217,7 +247,20 @@
 
 <main>
 
-  <!-- ===== 画像取り込みエリア ===== -->
+  <!-- APIキー設定 -->
+  <div id="api-key-section">
+    <div class="api-key-header">
+      <h2>🔑 Gemini APIキー</h2>
+      <span class="api-key-saved" id="key-status" style="display:none">✓ 保存済み</span>
+    </div>
+    <div class="api-key-input-row">
+      <input type="password" id="api-key-input" placeholder="AIza で始まるキーを入力" autocomplete="off" />
+      <button class="btn btn-save" onclick="saveApiKey()">保存</button>
+    </div>
+    <p class="api-key-note">※ キーはこのブラウザにのみ保存されます。外部には送信されません。</p>
+  </div>
+
+  <!-- 画像取り込み -->
   <div class="upload-area" id="upload-area">
     <div class="icon">🖼️</div>
     <p class="desc">英単語プリントの画像を選んでください<br>（JPG / PNG / HEIC など対応）</p>
@@ -225,33 +268,31 @@
       <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
         📁 画像を選ぶ
       </button>
-      <button class="btn btn-camera" id="camera-btn" onclick="document.getElementById('camera-input').click()">
+      <button class="btn btn-camera" onclick="document.getElementById('camera-input').click()">
         📷 カメラで撮る
       </button>
     </div>
-    <!-- ファイル選択（ギャラリー） -->
     <input type="file" id="file-input"   accept="image/*"        onchange="handleFile(this.files[0])" />
-    <!-- ファイル選択（カメラ） -->
     <input type="file" id="camera-input" accept="image/*" capture="environment" onchange="handleFile(this.files[0])" />
   </div>
 
-  <!-- ===== 画像プレビュー ===== -->
+  <!-- プレビュー -->
   <div id="preview-section">
     <img id="preview-img" src="" alt="選択した画像" />
   </div>
 
-  <!-- ===== OCR進捗 ===== -->
+  <!-- 進捗 -->
   <div id="progress-section">
-    <p class="progress-label" id="progress-label">読み取り中... 0%</p>
+    <p class="progress-label" id="progress-label">読み取り中...</p>
     <div class="progress-bar-wrap">
       <div class="progress-bar" id="progress-bar"></div>
     </div>
   </div>
 
-  <!-- ===== エラー ===== -->
+  <!-- エラー -->
   <div id="error-msg"></div>
 
-  <!-- ===== 結果 ===== -->
+  <!-- 結果 -->
   <div id="result-section">
     <div class="result-header">
       <h2>📝 読み取った英単語</h2>
@@ -263,16 +304,34 @@
 
 </main>
 
-<footer>タップすると発音します ・ ブラウザの音声読み上げを使用</footer>
+<footer>タップすると発音します ・ Gemini AI + ブラウザ音声読み上げ</footer>
 
 <script>
-  // ===== ドラッグ＆ドロップ対応 =====
-  const uploadArea = document.getElementById('upload-area');
+  // ===== APIキー管理 =====
+  const KEY_STORAGE = 'gemini_api_key';
 
-  uploadArea.addEventListener('dragover', e => {
-    e.preventDefault();
-    uploadArea.classList.add('dragover');
-  });
+  function loadApiKey() {
+    const key = localStorage.getItem(KEY_STORAGE) || '';
+    if (key) {
+      document.getElementById('api-key-input').value = key;
+      document.getElementById('key-status').style.display = 'inline';
+    }
+    return key;
+  }
+
+  function saveApiKey() {
+    const key = document.getElementById('api-key-input').value.trim();
+    if (!key) { alert('APIキーを入力してください'); return; }
+    localStorage.setItem(KEY_STORAGE, key);
+    document.getElementById('key-status').style.display = 'inline';
+    alert('保存しました！');
+  }
+
+  loadApiKey();
+
+  // ===== ドラッグ＆ドロップ =====
+  const uploadArea = document.getElementById('upload-area');
+  uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
   uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
   uploadArea.addEventListener('drop', e => {
     e.preventDefault();
@@ -281,150 +340,114 @@
     if (file && file.type.startsWith('image/')) handleFile(file);
   });
 
-  // ===== 画像前処理（グレースケール＋コントラスト強化＋二値化） =====
-  function preprocessImage(file) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        // 長辺を2000pxに制限（大きすぎると処理が重いため）
-        const maxSize = 2000;
-        let w = img.naturalWidth;
-        let h = img.naturalHeight;
-        if (w > maxSize || h > maxSize) {
-          if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
-          else       { w = Math.round(w * maxSize / h); h = maxSize; }
-        }
-        canvas.width  = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-
-        // 描画
-        ctx.drawImage(img, 0, 0, w, h);
-        URL.revokeObjectURL(url);
-
-        // グレースケール変換
-        const imageData = ctx.getImageData(0, 0, w, h);
-        const data = imageData.data;
-        const gray = new Float32Array(w * h);
-        for (let i = 0; i < w * h; i++) {
-          gray[i] = 0.299 * data[i*4] + 0.587 * data[i*4+1] + 0.114 * data[i*4+2];
-        }
-
-        // 積分画像（Summed Area Table）を使った高速適応的閾値処理
-        const sat = new Float64Array(w * h);
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < w; x++) {
-            const i = y * w + x;
-            sat[i] = gray[i]
-              + (x > 0 ? sat[i-1] : 0)
-              + (y > 0 ? sat[i-w] : 0)
-              - (x > 0 && y > 0 ? sat[i-w-1] : 0);
-          }
-        }
-        const half = Math.max(10, Math.round(Math.min(w, h) / 50));
-        const C = 8;
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < w; x++) {
-            const x1 = Math.max(0, x - half), y1 = Math.max(0, y - half);
-            const x2 = Math.min(w-1, x + half), y2 = Math.min(h-1, y + half);
-            const count = (x2 - x1 + 1) * (y2 - y1 + 1);
-            const sum = sat[y2*w+x2]
-              - (x1 > 0 ? sat[y2*w+x1-1] : 0)
-              - (y1 > 0 ? sat[(y1-1)*w+x2] : 0)
-              + (x1 > 0 && y1 > 0 ? sat[(y1-1)*w+x1-1] : 0);
-            const binary = gray[y*w+x] * count < sum - C * count ? 0 : 255;
-            const idx = (y * w + x) * 4;
-            data[idx] = data[idx+1] = data[idx+2] = binary;
-            data[idx+3] = 255;
-          }
-        }
-        ctx.putImageData(imageData, 0, 0);
-
-        // Blob に変換して返す
-        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Blob変換失敗')), 'image/png');
-      };
-      img.onerror = reject;
-      img.src = url;
-    });
-  }
-
   // ===== ファイル処理メイン =====
   async function handleFile(file) {
     if (!file) return;
 
-    // プレビュー表示
-    const url = URL.createObjectURL(file);
-    document.getElementById('preview-img').src = url;
+    const apiKey = localStorage.getItem(KEY_STORAGE);
+    if (!apiKey) {
+      showError('先にAPIキーを入力・保存してください。');
+      return;
+    }
+
+    // プレビュー
+    document.getElementById('preview-img').src = URL.createObjectURL(file);
     document.getElementById('preview-section').style.display = 'block';
 
-    // 進捗バー表示
-    setProgress(0, '読み取りを開始しています...');
+    setProgress(20, 'AIに送信中...');
     document.getElementById('progress-section').style.display = 'block';
     document.getElementById('result-section').style.display = 'none';
     document.getElementById('error-msg').style.display = 'none';
 
     try {
-      // 画像を前処理（グレースケール＋コントラスト強化＋二値化）してからOCR
-      setProgress(0, '画像を処理しています...');
-      const processedBlob = await preprocessImage(file);
+      // 画像をBase64に変換
+      const base64 = await fileToBase64(file);
+      const mimeType = file.type || 'image/jpeg';
 
-      // Tesseract.js で OCR（英語・英字ホワイトリスト指定）
-      const result = await Tesseract.recognize(processedBlob, 'eng', {
-        logger: info => {
-          if (info.status === 'recognizing text') {
-            const pct = Math.round(info.progress * 100);
-            setProgress(pct, `読み取り中... ${pct}%`);
-          }
-        },
-        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz\'-',
-        tessedit_pageseg_mode: '4',  // 縦に並んだ単語リスト向け（単一カラム）
-      });
+      setProgress(50, 'AIが読み取り中...');
+
+      // Gemini API呼び出し
+      const words = await callGeminiOCR(apiKey, base64, mimeType);
 
       setProgress(100, '完了！');
-
-      const rawText = result.data.text;
-      const words = extractEnglishWords(rawText);
-
-      // 結果表示
       showResults(words);
 
     } catch (err) {
       console.error(err);
-      showError('読み取りに失敗しました。別の画像をお試しください。');
+      showError(`読み取りに失敗しました。\n${err.message}`);
     } finally {
       document.getElementById('progress-section').style.display = 'none';
     }
   }
 
-  // ===== 英単語の抽出 =====
-  function extractEnglishWords(text) {
-    // 改行・タブをスペースに変換して分割
-    const tokens = text.replace(/[\r\n\t]+/g, ' ').split(/\s+/);
+  // ===== 画像→Base64 =====
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        // "data:image/jpeg;base64,XXXX" の XXXX 部分だけ取り出す
+        const base64 = reader.result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
 
-    const seen = new Set();
-    const words = [];
+  // ===== Gemini API で英単語を抽出 =====
+  async function callGeminiOCR(apiKey, base64, mimeType) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
-    for (const raw of tokens) {
-      // 前後の記号・数字・引用符を除去
-      const word = raw.replace(/^[^a-zA-Z'-]+|[^a-zA-Z'-]+$/g, '');
+    const prompt = `この画像は学校の英単語プリントです。
+画像に書かれている英単語を、プリントに載っている順番通りにすべて抽出してください。
 
-      // 英字のみ（ハイフン付き可）・2文字以上
-      if (/^[a-zA-Z][a-zA-Z'-]*[a-zA-Z]$/.test(word) || /^[a-zA-Z]{2}$/.test(word)) {
-        const lower = word.toLowerCase();
-        if (!seen.has(lower)) {
-          seen.add(lower);
-          words.push(lower);
-        }
-      }
+以下のルールで答えてください：
+- 英単語だけを1行に1語ずつ出力する
+- 日本語・数字・記号・番号は含めない
+- 重複する単語は1回だけ出力する
+- 余計な説明・コメントは不要
+- 小文字で統一する
+
+出力例：
+apple
+study
+beautiful`;
+
+    const body = {
+      contents: [{
+        parts: [
+          { text: prompt },
+          { inline_data: { mime_type: mimeType, data: base64 } }
+        ]
+      }],
+      generationConfig: { temperature: 0 }
+    };
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const msg = err?.error?.message || `HTTPエラー ${res.status}`;
+      throw new Error(msg);
     }
 
-    // プリントの順番を保持（ソートしない）
+    const json = await res.json();
+    const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    // 1行1語に分割して英単語のみ取り出す
+    const words = text
+      .split('\n')
+      .map(line => line.trim().toLowerCase())
+      .filter(line => /^[a-z][a-z'-]*[a-z]$/.test(line) || /^[a-z]{2}$/.test(line));
+
     return words;
   }
 
-  // ===== 結果を表示 =====
+  // ===== 結果表示 =====
   function showResults(words) {
     const list = document.getElementById('word-list');
     const count = document.getElementById('word-count');
@@ -449,30 +472,21 @@
     section.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  // ===== 発音（Web Speech API） =====
-  let currentUtterance = null;
-
+  // ===== 発音 =====
   function speak(word, cardEl) {
-    // 前の発音を止める
     window.speechSynthesis.cancel();
-
-    // speaking スタイルを外す
     document.querySelectorAll('.word-card.speaking').forEach(el => el.classList.remove('speaking'));
 
     const utter = new SpeechSynthesisUtterance(word);
     utter.lang = 'en-US';
     utter.rate = 0.9;
-    utter.pitch = 1;
-
     utter.onstart = () => cardEl.classList.add('speaking');
     utter.onend   = () => cardEl.classList.remove('speaking');
     utter.onerror = () => cardEl.classList.remove('speaking');
-
-    currentUtterance = utter;
     window.speechSynthesis.speak(utter);
   }
 
-  // ===== 進捗バー更新 =====
+  // ===== 進捗バー =====
   function setProgress(pct, label) {
     document.getElementById('progress-bar').style.width = `${pct}%`;
     document.getElementById('progress-label').textContent = label;
@@ -487,26 +501,15 @@
 
   // ===== リセット =====
   function resetApp() {
-    // ファイル入力をリセット
     document.getElementById('file-input').value = '';
     document.getElementById('camera-input').value = '';
-
-    // 各セクションを隠す
     document.getElementById('preview-section').style.display = 'none';
     document.getElementById('progress-section').style.display = 'none';
     document.getElementById('result-section').style.display = 'none';
     document.getElementById('error-msg').style.display = 'none';
-
-    // 発音を止める
     window.speechSynthesis.cancel();
-
-    // 上にスクロール
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-
-  // ===== スマホでカメラボタンが不要な場合（PCのみ）は任意で非表示 =====
-  // カメラ入力はスマホでは capture='environment' で背面カメラを起動
-  // PCでもファイル選択として機能するので非表示にはしない
 </script>
 
 </body>
