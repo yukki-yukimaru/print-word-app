@@ -425,7 +425,7 @@
 
   // ===== Gemini API で英単語を抽出 =====
   async function callGeminiOCR(apiKey, base64, mimeType) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
     const prompt = `この画像は学校の英語プリントです。
 画像に書かれている英語のテキスト（単語・フレーズ・例文・長文）を、プリントに載っている順番通りにすべて抽出してください。
