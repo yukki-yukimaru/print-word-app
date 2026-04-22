@@ -398,26 +398,26 @@
   async function callGeminiOCR(apiKey, base64, mimeType) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
-    const prompt = `この画像は学校の英単語プリントです。
-画像に書かれている「1つの英単語」だけを、プリントに載っている順番通りにすべて抽出してください。
+    const prompt = `この画像は学校の英単語・英語表現プリントです。
+画像に書かれている英単語・英語フレーズを、プリントに載っている順番通りにすべて抽出してください。
 
 以下のルールで答えてください：
-- 1行に1語ずつ出力する
-- 必ず「1つの単語」のみ。複数の単語からなるフレーズ・表現は除外する（例：「Call me~」「want to~」「South Africa」などは除外）
-- チルダ（~）・括弧・記号が付いているものは除外する（例：「sweet(s)」「number(s)」「Call me~」は除外）
+- 1行に1項目ずつ出力する
+- 単語だけでなく「Call me」「want to」「South Africa」のようなフレーズも含める
+- チルダ（~）・括弧・番号・記号は取り除いてきれいにする（例：「Call me~」→「call me」、「sweet(s)」→「sweet」）
 - 日本語・数字・番号は含めない
-- 重複する単語は1回だけ出力する
+- 重複する項目は1回だけ出力する
 - 余計な説明・コメントは不要
 - 小文字で統一する
 
 出力例：
 call
+south africa
 love
 everyone
-from
-japanese
-join
-club`;
+call me
+want to
+sweet`;
 
     const body = {
       contents: [{
@@ -444,11 +444,11 @@ club`;
     const json = await res.json();
     const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    // 1行1語に分割して英単語のみ取り出す
+    // 1行1項目に分割して英語（単語・フレーズ）のみ取り出す
     const words = text
       .split('\n')
-      .map(line => line.trim().toLowerCase())
-      .filter(line => /^[a-z][a-z'-]*[a-z]$/.test(line) || /^[a-z]{2}$/.test(line));
+      .map(line => line.trim().toLowerCase().replace(/[~()[\]{}]/g, '').trim())
+      .filter(line => line.length >= 2 && /^[a-z][a-z' -]*[a-z]$/.test(line));
 
     return words;
   }
