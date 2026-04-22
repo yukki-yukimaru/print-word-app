@@ -425,7 +425,7 @@
 
   // ===== Gemini API で英単語を抽出 =====
   async function callGeminiOCR(apiKey, base64, mimeType) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
     const prompt = `この画像は学校の英語プリントです。
 画像に書かれている英語のテキスト（単語・フレーズ・例文・長文）を、プリントに載っている順番通りにすべて抽出してください。
@@ -458,15 +458,30 @@ sweet`;
       generationConfig: { temperature: 0 }
     };
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30000);
+
+    let res;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+    } catch (e) {
+      if (e.name === 'AbortError') throw new Error('タイムアウト（30秒）しました。もう一度お試しください。');
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       const msg = err?.error?.message || `HTTPエラー ${res.status}`;
+      if (msg.includes('high demand') || res.status === 503 || res.status === 429) {
+        throw new Error('AIが混雑中です。少し待ってからもう一度お試しください。');
+      }
       throw new Error(msg);
     }
 
