@@ -187,28 +187,57 @@
     .word-card {
       background: white;
       border-radius: 12px;
-      padding: 14px 18px;
-      font-size: 1.2rem;
+      padding: 12px 14px;
+      font-size: 1.1rem;
       font-weight: 600;
-      letter-spacing: 0.04em;
-      cursor: pointer;
+      letter-spacing: 0.03em;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 8px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.07);
       transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
       -webkit-tap-highlight-color: transparent;
-      user-select: none;
     }
-    .word-card:hover  { background: #f0f6ff; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(74,144,226,0.18); }
-    .word-card:active { background: #dce8ff; transform: scale(0.98); }
+    .word-card:not(.editing):hover { background: #f0f6ff; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(74,144,226,0.18); }
     .word-card.speaking {
       background: linear-gradient(135deg, #eef4ff, #f0e8ff);
       border-left: 4px solid #4a90e2;
     }
-    .word-text  { color: #222; }
-    .speak-icon { font-size: 1.1rem; opacity: 0.5; transition: opacity 0.15s; }
-    .word-card:hover .speak-icon { opacity: 1; }
+    .word-text {
+      color: #222;
+      flex: 1;
+      word-break: break-word;
+      cursor: pointer;
+      line-height: 1.4;
+    }
+    .word-actions { display: flex; gap: 4px; flex-shrink: 0; align-items: center; }
+    .icon-btn {
+      background: none;
+      border: none;
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 6px;
+      opacity: 1;
+      transition: background 0.15s;
+      line-height: 1;
+    }
+    .icon-btn:hover { background: #f0f0f0; }
+    .icon-btn.delete:hover { background: #fff0f0; }
+
+    /* 編集モード */
+    .word-card.editing { background: #f8fbff; border: 2px solid #4a90e2; }
+    .word-edit-input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #222;
+      outline: none;
+      padding: 0;
+      width: 100%;
+    }
 
     /* ===== エラー ===== */
     #error-msg {
@@ -396,25 +425,25 @@
 
   // ===== Gemini API で英単語を抽出 =====
   async function callGeminiOCR(apiKey, base64, mimeType) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
-    const prompt = `この画像は学校の英単語・英語表現プリントです。
-画像に書かれている英単語・英語フレーズを、プリントに載っている順番通りにすべて抽出してください。
+    const prompt = `この画像は学校の英語プリントです。
+画像に書かれている英語のテキスト（単語・フレーズ・例文・長文）を、プリントに載っている順番通りにすべて抽出してください。
 
 以下のルールで答えてください：
 - 1行に1項目ずつ出力する
-- 単語だけでなく「Call me」「want to」「South Africa」のようなフレーズも含める
-- チルダ（~）・括弧・番号・記号は取り除いてきれいにする（例：「Call me~」→「call me」、「sweet(s)」→「sweet」）
-- 日本語・数字・番号は含めない
+- 単語・フレーズ・例文・長い文章すべて含める（長さは問わない）
+- チルダ（~）・括弧・番号・行頭の数字は取り除いてきれいにする（例：「1. Call me~」→「call me」）
+- 日本語・純粋な数字のみの行は含めない
 - 重複する項目は1回だけ出力する
 - 余計な説明・コメントは不要
-- 小文字で統一する
+- 小文字で統一する（固有名詞も小文字でOK）
 
 出力例：
 call
 south africa
-love
-everyone
+i want to be a teacher
+she has been studying english for three years
 call me
 want to
 sweet`;
@@ -444,11 +473,11 @@ sweet`;
     const json = await res.json();
     const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    // 1行1項目に分割して英語（単語・フレーズ）のみ取り出す
+    // 1行1項目に分割して英語テキスト（単語・フレーズ・長文）のみ取り出す
     const words = text
       .split('\n')
-      .map(line => line.trim().toLowerCase().replace(/[~()[\]{}]/g, '').trim())
-      .filter(line => line.length >= 2 && /^[a-z][a-z' -]*[a-z]$/.test(line));
+      .map(line => line.trim().replace(/^[\d\s.、。）)）\-]+/, '').replace(/[~()[\]{}～]/g, '').trim().toLowerCase())
+      .filter(line => line.length >= 2 && /[a-z]/.test(line) && !/^\d+$/.test(line));
 
     return words;
   }
@@ -460,22 +489,109 @@ sweet`;
     const section = document.getElementById('result-section');
 
     list.innerHTML = '';
-    count.textContent = `${words.length} 語`;
+    updateCount();
 
     if (words.length === 0) {
       list.innerHTML = '<div class="empty-state">英単語が見つかりませんでした。<br>別の画像をお試しください。</div>';
     } else {
       for (const word of words) {
-        const card = document.createElement('div');
-        card.className = 'word-card';
-        card.innerHTML = `<span class="word-text">${word}</span><span class="speak-icon">🔊</span>`;
-        card.addEventListener('click', () => speak(word, card));
-        list.appendChild(card);
+        list.appendChild(createCard(word));
       }
     }
 
     section.style.display = 'block';
     section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function updateCount() {
+    const n = document.getElementById('word-list').querySelectorAll('.word-card').length;
+    document.getElementById('word-count').textContent = `${n} 語`;
+  }
+
+  function createCard(word) {
+    const card = document.createElement('div');
+    card.className = 'word-card';
+    card.innerHTML = `
+      <span class="word-text">${word}</span>
+      <div class="word-actions">
+        <button class="icon-btn speak"  title="発音">🔊</button>
+        <button class="icon-btn edit"   title="編集">✏️</button>
+        <button class="icon-btn delete" title="削除">🗑️</button>
+      </div>`;
+
+    const textEl  = card.querySelector('.word-text');
+    const speakBtn = card.querySelector('.speak');
+    const editBtn  = card.querySelector('.edit');
+    const deleteBtn = card.querySelector('.delete');
+
+    speakBtn.addEventListener('click', () => speak(textEl.textContent.trim(), card));
+    textEl.addEventListener('click',   () => speak(textEl.textContent.trim(), card));
+    editBtn.addEventListener('click',  () => startEdit(card, textEl));
+    deleteBtn.addEventListener('click', () => { card.remove(); updateCount(); });
+
+    return card;
+  }
+
+  function startEdit(card, textEl) {
+    if (card.classList.contains('editing')) return;
+    card.classList.add('editing');
+    window.speechSynthesis.cancel();
+    card.classList.remove('speaking');
+
+    const original = textEl.textContent.trim();
+    const input = document.createElement('input');
+    input.className = 'word-edit-input';
+    input.value = original;
+    input.spellcheck = false;
+
+    const actions = card.querySelector('.word-actions');
+    textEl.replaceWith(input);
+    actions.innerHTML = `
+      <button class="icon-btn confirm" title="確定">✅</button>
+      <button class="icon-btn cancel"  title="キャンセル">❌</button>`;
+
+    input.focus();
+
+    const confirm = () => {
+      const val = input.value.trim();
+      const newText = document.createElement('span');
+      newText.className = 'word-text';
+      newText.textContent = val || original;
+      input.replaceWith(newText);
+      card.classList.remove('editing');
+      actions.innerHTML = `
+        <button class="icon-btn speak"  title="発音">🔊</button>
+        <button class="icon-btn edit"   title="編集">✏️</button>
+        <button class="icon-btn delete" title="削除">🗑️</button>`;
+      rebindActions(card, newText);
+    };
+
+    const cancel = () => {
+      const newText = document.createElement('span');
+      newText.className = 'word-text';
+      newText.textContent = original;
+      input.replaceWith(newText);
+      card.classList.remove('editing');
+      actions.innerHTML = `
+        <button class="icon-btn speak"  title="発音">🔊</button>
+        <button class="icon-btn edit"   title="編集">✏️</button>
+        <button class="icon-btn delete" title="削除">🗑️</button>`;
+      rebindActions(card, newText);
+    };
+
+    actions.querySelector('.confirm').addEventListener('click', confirm);
+    actions.querySelector('.cancel').addEventListener('click', cancel);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') confirm();
+      if (e.key === 'Escape') cancel();
+    });
+  }
+
+  function rebindActions(card, textEl) {
+    card.querySelector('.speak').addEventListener('click',  () => speak(textEl.textContent.trim(), card));
+    card.querySelector('.edit').addEventListener('click',   () => startEdit(card, textEl));
+    card.querySelector('.delete').addEventListener('click', () => { card.remove(); updateCount(); });
+    textEl.addEventListener('click', () => speak(textEl.textContent.trim(), card));
   }
 
   // ===== 発音 =====
